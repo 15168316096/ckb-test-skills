@@ -381,7 +381,7 @@ description: AI-driven security audit skill for any software project. Use this s
 
 背景:
   CKB 生态的核心协议和标准通过 RFC（Request for Comments）定义，
-  存放于 https://github.com/nervosnetwork/rfcs/tree/master/rfcs 。
+  存放于 https://github.com/nervosnetwork/rfcs/tree/master/rfcs。
   合约和工具代码应严格遵循相关 RFC 规范，任何偏差都可能引发兼容性问题或安全漏洞。
   审计时需将代码实现与对应 RFC 逐条比对，确保一致性。
 
