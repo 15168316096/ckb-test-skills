@@ -58,11 +58,25 @@ This Skill provides an AI-driven security audit framework applicable to any prog
 
 **Key Features:**
 *   **Phased Execution**: Structured workflow across 4 phases — reconnaissance, deep audit, documentation updates, and final report generation.
-*   **Multi-Dimension Analysis**: Covers 11 audit dimensions including input validation, cryptography, authentication, business logic, memory safety, smart contract specifics, and more.
+*   **Multi-Dimension Analysis**: Covers 13 audit dimensions including input validation, cryptography, authentication, business logic, memory safety, smart contract specifics, and more.
 *   **TODO-Driven Tracking**: Uses a centralized TODO document as the single source of truth for audit progress, supporting cross-session continuity.
+*   **CKB Memory Alignment Audit (DIM-CKB-ALIGN)**: Detects memory alignment issues specific to CKB-VM (RISC-V) smart contracts, including unaligned pointer casts, packed struct access, buffer alignment, Molecule data access, and VM version compatibility. Outputs a structured audit report with risk classification and fix suggestions.
+*   **CKB RFC Compliance Matching (DIM-CKB-RFC)**: Cross-references CKB project code against [CKB RFCs](https://github.com/nervosnetwork/rfcs/tree/master/rfcs) to verify protocol compliance. Maps code modules to relevant RFCs (transaction structure, VM syscalls, serialization, token standards, etc.) and produces an RFC coverage matrix with deviation analysis.
 
 #### Usage
 
 ```text
 Use security-audit to perform a security audit on <project_path>
+```
+
+For CKB-specific memory alignment audit:
+
+```text
+Use security-audit to audit CKB contract memory alignment issues on <contract_file_path>
+```
+
+For CKB RFC compliance matching:
+
+```text
+Use security-audit to check CKB RFC compliance on <project_path>
 ```
