@@ -335,6 +335,137 @@ description: AI-driven security audit skill for any software project. Use this s
   □ 与参考实现的差异是否有意为之
 ```
 
+### DIM-CKB-ALIGN: CKB 内存对齐安全
+```
+适用: CKB 智能合约项目 (C/Rust/Assembly 运行于 CKB-VM RISC-V 环境)
+
+背景:
+  CKB-VM 基于 RISC-V 指令集。RISC-V 规范中，非对齐内存访问（misaligned memory access）
+  可能导致性能下降、异常行为或安全漏洞。在 CKB-VM 环境下，不同版本的 VM 对非对齐访问
+  的处理行为不同（参见 RFC 0003-ckb-vm、RFC 0049-ckb-vm-version-2）。
+  合约代码必须确保所有内存操作满足对齐要求，避免因平台差异导致的安全问题。
+
+检查点:
+  □ 指针类型转换是否保持对齐约束
+    - 检测 (uint32_t*)(buf + offset) 等未对齐强制转换
+    - 检测 Rust 中 ptr::read_unaligned / ptr::write_unaligned 的使用与缺失
+    - 检测 core::mem::transmute 或 as *const T 对未对齐地址的使用
+  □ 结构体内存布局是否显式控制
+    - C 代码是否使用 __attribute__((packed)) 或 #pragma pack
+    - Rust 代码是否使用 #[repr(packed)] / #[repr(C)]
+    - packed 结构体字段的引用是否通过 ptr::read_unaligned 安全访问
+  □ 栈/堆缓冲区对齐
+    - 局部数组或 alloc 的缓冲区是否满足后续访问的对齐需求
+    - syscall 返回的数据缓冲区（如 ckb_load_cell_data）写入后的类型转换是否对齐安全
+  □ Molecule 序列化数据的内存访问
+    - Molecule 编码的数据是字节流，直接转换为多字节类型（u32/u64/u128）时是否对齐安全
+    - 是否使用了 from_le_bytes / to_le_bytes 等安全的字节序转换方法
+  □ 多字节数值读写
+    - u16/u32/u64/u128 的读写是否从对齐地址操作
+    - 跨字节拼接数值是否通过逐字节读取+移位而非直接指针转换
+  □ CKB-VM 版本兼容性
+    - 合约在 CKB-VM v1 和 v2 中的内存对齐行为是否一致
+    - 是否有依赖特定 VM 版本对齐行为的隐式假设
+
+输出: 内存对齐审计报告，包含以下部分:
+  1. 检测到的所有非对齐内存访问位置（文件:行号:代码片段）
+  2. 每处问题的风险级别（Critical/High/Medium/Low）
+  3. 分类统计（指针转换/packed结构体/缓冲区/序列化/数值读写）
+  4. 针对每处问题的具体修复建议
+  5. VM 版本兼容性影响评估
+```
+
+### DIM-CKB-RFC: CKB RFC 规范关联审计
+```
+适用: CKB 生态项目（智能合约/节点实现/SDK/工具链）
+
+背景:
+  CKB 生态的核心协议和标准通过 RFC（Request for Comments）定义，
+  存放于 https://github.com/nervosnetwork/rfcs/tree/master/rfcs。
+  合约和工具代码应严格遵循相关 RFC 规范，任何偏差都可能引发兼容性问题或安全漏洞。
+  审计时需将代码实现与对应 RFC 逐条比对，确保一致性。
+
+审计步骤:
+  Step 1 — RFC 关联识别
+    根据代码功能，匹配适用的 RFC 列表:
+    ┌──────────────────────┬──────────────────────────────────────────────────────┐
+    │ 代码涉及领域          │ 关联 RFC                                             │
+    ├──────────────────────┼──────────────────────────────────────────────────────┤
+    │ 交易结构/验证         │ RFC 0022-transaction-structure                       │
+    │                      │ RFC 0019-data-structures                             │
+    │ VM 执行/Cycle 计算    │ RFC 0003-ckb-vm                                     │
+    │                      │ RFC 0014-vm-cycle-limits                             │
+    │                      │ RFC 0032-ckb-vm-version-selection                    │
+    │                      │ RFC 0049-ckb-vm-version-2                            │
+    │ VM Syscall 调用       │ RFC 0009-vm-syscalls                                │
+    │                      │ RFC 0034-vm-syscalls-2                               │
+    │                      │ RFC 0050-vm-syscalls-3                               │
+    │                      │ RFC 0046-syscalls-summary                            │
+    │ 序列化（Molecule）    │ RFC 0008-serialization                               │
+    │ 密码学/哈希           │ RFC 0010-eaglesong                                   │
+    │ 时间锁/since 字段     │ RFC 0017-tx-valid-since                             │
+    │                      │ RFC 0028-change-since-relative-timestamp             │
+    │ 地址格式              │ RFC 0021-ckb-address-format                          │
+    │ DAO 操作              │ RFC 0023-dao-deposit-withdraw                       │
+    │ 代币标准 (sUDT/xUDT) │ RFC 0025-simple-udt                                 │
+    │                      │ RFC 0052-extensible-udt                              │
+    │ Lock Script 标准      │ RFC 0024-ckb-genesis-script-list                    │
+    │                      │ RFC 0026-anyone-can-pay                              │
+    │                      │ RFC 0042-omnilock                                    │
+    │ 共识协议              │ RFC 0020-ckb-consensus-protocol                      │
+    │ 网络协议              │ RFC 0012-node-discovery                              │
+    │                      │ RFC 0007-scoring-system-and-network-security         │
+    │ 硬分叉/软分叉兼容     │ RFC 0035-ckb2021                                    │
+    │                      │ RFC 0043-ckb-softfork-activation                     │
+    │                      │ RFC 0051-ckb2023                                     │
+    │ 轻客户端              │ RFC 0044-ckb-light-client                            │
+    │                      │ RFC 0045-client-block-filter                         │
+    └──────────────────────┴──────────────────────────────────────────────────────┘
+
+  Step 2 — 逐条比对检查
+    对每个匹配的 RFC:
+    □ 列出 RFC 中定义的关键规则/约束/数据结构
+    □ 在代码中定位对应的实现位置
+    □ 逐条比对实现与规范的一致性
+    □ 标记偏差项: 有意偏差（需说明原因） vs 无意偏差（潜在 Bug）
+
+  Step 3 — 合规性检查点
+    □ 交易结构字段是否与 RFC 0022 定义一致
+    □ Syscall 调用参数/返回值是否符合 RFC 0009/0034/0050
+    □ Molecule 编码/解码是否符合 RFC 0008 格式规范
+    □ Cycle 消耗计算是否在 RFC 0014 限制范围内
+    □ since 字段解析是否符合 RFC 0017/0028 的语义
+    □ 地址编解码是否符合 RFC 0021 的 Bech32/Bech32m 规范
+    □ UDT 实现是否满足 RFC 0025 (sUDT) 或 RFC 0052 (xUDT) 的接口要求
+    □ Lock Script 是否兼容 RFC 0024 中的已知脚本行为
+    □ DAO 操作（存取款/利息计算）是否与 RFC 0023 一致
+    □ 代码是否兼容 CKB2021 (RFC 0035) 和 CKB2023 (RFC 0051) 的变更
+
+  Step 4 — 输出 RFC 关联审计报告
+    报告结构:
+    ┌──────────────────────────────────────────────────────┐
+    │ 1. RFC 覆盖矩阵                                      │
+    │    代码模块 × 关联 RFC 的覆盖状态表                     │
+    │ 2. 合规项清单                                         │
+    │    逐条列出已验证的合规项 ✅                            │
+    │ 3. 偏差项清单                                         │
+    │    逐条列出发现的偏差:                                  │
+    │    - RFC 条款引用                                      │
+    │    - 代码位置 (文件:行号)                               │
+    │    - 偏差描述                                          │
+    │    - 风险评级 (Critical/High/Medium/Low)               │
+    │    - 是否为有意设计                                     │
+    │ 4. 未覆盖 RFC 条款                                     │
+    │    列出代码中未找到对应实现的 RFC 规则                    │
+    │ 5. 版本兼容性评估                                      │
+    │    代码对不同 CKB 版本 (v2021/v2023) 的兼容情况          │
+    └──────────────────────────────────────────────────────┘
+
+RFC 参考源:
+  所有 RFC 全文位于: https://github.com/nervosnetwork/rfcs/tree/master/rfcs
+  审计时应直接读取对应 RFC 的 Markdown 原文进行比对。
+```
+
 ---
 
 ## 六、Phase 2 — TODO 文档更新规则
